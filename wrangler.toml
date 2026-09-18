@@ -1,0 +1,10 @@
+name = "perps-funding-pulse"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+
+[vars]
+# PUBLIC pay-to address (plan §6: config var, not a secret; no private keys anywhere)
+ORG_EVM_PAYTO = "0x76EfB727cd3271C7DE22f92437Be212766C9631f"
+X402_NETWORK = "eip155:8453"
+X402_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+X402_PRICE = "$0.01"

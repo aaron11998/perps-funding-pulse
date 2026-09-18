@@ -6,13 +6,14 @@
 export interface VenueResult {
   venue: string;
   market: string;
-  /** 8h-equivalent raw funding rate (decimal, e.g. 0.0001 = 0.01% per 8h) */
-  funding_rate_8h: number;
+  /** 8h-equivalent raw funding rate (decimal, e.g. 0.0001 = 0.01% per 8h); null when venue provides none */
+  funding_rate_8h: number | null;
   /** Native period the venue quotes funding for */
   native_period: string;
-  /** Funding rate as the venue quotes it (raw decimal over native period) */
-  funding_rate_native: number;
-  time_to_next_seconds: number;
+  /** Funding rate as the venue quotes it (raw decimal over native period); null when unknown */
+  funding_rate_native: number | null;
+  /** Seconds until venue's next funding event; null when venue gives no timestamp */
+  time_to_next_seconds: number | null;
   next_funding_time_utc: string | null;
   open_interest: number | null;
   /** premium/skew signal; null when venue provides none — never fabricated (plan §4) */

@@ -9,6 +9,7 @@ import {
   nextUtcHour,
   to8hEquivalent,
   nowIso,
+  binancePeriodHours,
 } from "./normalize";
 
 /** Venue API base URLs — injectable for tests */
@@ -56,6 +57,31 @@ export function pickBinance<T extends BinancePremiumIndexEntry>(
     const b = binanceBase(e.symbol);
     return b !== null && bases.has(b);
   });
+}
+
+/**
+ * USDT is the flagship perp pair; USDC-margined mirrors of the same base would
+ * produce two rows per market with silently different OI/mark data. Prefer
+ * USDT deterministically, fall back to USDC when only that pair exists.
+ * Fixture-verified 2026-09-18: 39/196 bases have BOTH pairs.
+ */
+export function dedupeBinance<T extends BinancePremiumIndexEntry>(
+  entries: T[],
+): T[] {
+  const byBase = new Map<string, T>();
+  for (const e of entries) {
+    const base = binanceBase(e.symbol);
+    if (!base) continue;
+    const prev = byBase.get(base);
+    if (!prev) {
+      byBase.set(base, e);
+      continue;
+    }
+    const prevUsdt = prev.symbol.endsWith("USDT");
+    const curUsdt = e.symbol.endsWith("USDT");
+    if (curUsdt && !prevUsdt) byBase.set(base, e);
+  }
+  return [...byBase.values()];
 }
 
 /**
@@ -113,18 +139,16 @@ export function normalizeBinance(
   const out: VenueResult[] = [];
   const want = new Set(markets.map((m) => m.toUpperCase()));
 
-  for (const e of premium) {
+  for (const e of dedupeBinance(premium)) {
     const base = binanceBase(e.symbol);
     if (!base || !want.has(base)) continue;
     const rate = Number(e.lastFundingRate);
     const mark = Number(e.markPrice);
     const idx = Number(e.indexPrice);
     const nextT = e.nextFundingTime;
-    // Native period: infer from gap between `time` (sample ts) and nextFundingTime
-    // is unreliable; Binance quotes 8h except a few 4h symbols. Derive via
-    // nextFundingTime - time heuristic bounded to {4h, 8h}.
-    const gap = nextT - e.time;
-    const periodHours = gap > 0 && gap <= 5 * 3_600_000 ? 4 : 8;
+    // Native period from venue-scheduled nextFundingTime (UTC-alignment rule —
+    // see binancePeriodHours). nextT=0 → unknown period, default 8h.
+    const periodHours = binancePeriodHours(nextT);
     const skew = Number.isFinite(idx) && idx !== 0 ? (mark - idx) / idx : null;
     const oi = oiByBase.get(base);
     const oiVal = oi ? Number(oi.openInterest) : NaN;
@@ -134,8 +158,8 @@ export function normalizeBinance(
       funding_rate_8h: to8hEquivalent(rate, periodHours),
       native_period: `${periodHours}h`,
       funding_rate_native: rate,
-      time_to_next_seconds: Math.max(0, Math.round((nextT - nowMs) / 1000)),
-      next_funding_time_utc: new Date(nextT).toISOString(),
+      time_to_next_seconds: nextT > 0 ? Math.max(0, Math.round((nextT - nowMs) / 1000)) : null,
+      next_funding_time_utc: nextT > 0 ? new Date(nextT).toISOString() : null,
       open_interest: Number.isFinite(oiVal) ? oiVal : null,
       skew,
       mark_price: Number.isFinite(mark) ? mark : null,
@@ -161,17 +185,22 @@ export function normalizeDydx(
   for (const [key, m] of Object.entries(data.markets ?? {})) {
     const base = key.replace(/-USD$/, "");
     if (!want.has(base)) continue;
+    // Settled markets have no live funding signal — exclude, not null-fill (fixture: 218/296 FINAL_SETTLEMENT)
+    if (m.status && m.status !== "ACTIVE") continue;
     const rateRaw = m.nextFundingRate ?? m.defaultFundingRate1H ?? null;
-    const rate = rateRaw !== null ? Number(rateRaw) : NaN;
+    // Number("") === 0 in JS — an empty string must be "missing", not a 0% rate
+    const rateNum =
+      rateRaw !== null && String(rateRaw).trim() !== "" ? Number(rateRaw) : NaN;
+    const rate = Number.isFinite(rateNum) ? rateNum : null;
     const oracle = Number(m.oraclePrice);
     const chg = Number(m.priceChange24H);
     const oi = Number(m.openInterest);
     out.push({
       venue: "dydx",
       market: base,
-      funding_rate_8h: Number.isFinite(rate) ? to8hEquivalent(rate, 1) : NaN,
+      funding_rate_8h: rate !== null ? to8hEquivalent(rate, 1) : null,
       native_period: "1h",
-      funding_rate_native: Number.isFinite(rate) ? rate : NaN,
+      funding_rate_native: rate,
       time_to_next_seconds: Math.max(0, Math.round((nextHour - nowMs) / 1000)),
       next_funding_time_utc: new Date(nextHour).toISOString(),
       open_interest: Number.isFinite(oi) ? oi : null,

@@ -1,6 +1,6 @@
 {
   "name": "perps-funding-pulse",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "x402-gated perps funding-rate pulse API on Cloudflare Workers (bounty #8, daydreamsai/agent-bounties)",
   "type": "module",

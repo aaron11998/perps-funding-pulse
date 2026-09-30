@@ -12,16 +12,15 @@ Permanent Cloudflare Workers account (free tier, `*.workers.dev` domain). Redepl
 
 ## Endpoints
 
-| Route | Auth | Behavior (re-verified live via curl 2026-09-24) |
+| Route | Auth | Behavior (re-verified live via curl 2026-10-01) |
 |---|---|---|
 | `GET /health` | free | `200 {"status":"ok","service":"perps-funding-pulse","venues":["hyperliquid","binance","dydx"],"x402":{...}}` |
 | `GET /.well-known/x402.json` | free | `200` x402 discovery manifest (scheme `exact`, network `eip155:8453`, USDC, payTo, `$0.01`) |
 | `POST /funding` | x402, $0.01 | live funding rates + open interest + skew across 3 venues |
 
-## x402 wire evidence (fresh 402 transcript, 2026-09-24)
+## x402 wire evidence (fresh 402 transcript, 2026-10-01)
 
-Unauthenticated paid call against the live URL returns the exact x402 402 with
-populated payment requirements:
+Unauthenticated paid call against the live URL returns the exact x402 402 with populated payment requirements:
 
 ```
 HTTP/2 402
@@ -41,26 +40,17 @@ HTTP/2 402
 }
 ```
 
-Payment verification is delegated to the official x402 facilitator
-(`x402-hono` `paymentMiddleware`, network `eip155:8453` = Base mainnet).
-The service holds **no private keys** — it only verifies and settles x402
-payments to the payTo address; it never signs.
+Payment verification is delegated to the official x402 facilitator (`x402-hono` `paymentMiddleware`, network `eip155:8453` = Base mainnet). The service holds **no private keys** — it only verifies and settles x402 payments to the payTo address; it never signs.
 
 ## Why the data is trustworthy
 
-- Live venue APIs (Hyperliquid, Binance fapi, dYdX) are normalized through
-  per-venue adapters with **zod-validated inputs** and symbol allowlists — no
-  free-form passthrough (a malicious `market` string would have 500'd every
-  paid call). Fixtures in-repo are live captures, not mocks.
-- Test suite re-run 2026-09-24: **15/15 vitest green**, `npx tsc --noEmit` clean.
+- Live venue APIs (Hyperliquid, Binance fapi, dYdX) are normalized through per-venue adapters with **zod-validated inputs** and symbol allowlists — no free-form passthrough (a malicious `market` string would have 500'd every paid call). Fixtures in-repo are live captures, not mocks.
+- Test suite re-run 2026-10-01: **15/15 vitest green**, `npx tsc --noEmit` clean.
 
 ## Honest limitations
 
-- Self-funded $0.01 settlement was skipped under a zero-capital constraint;
-  the first external paid call supplies the on-chain proof (transcript above
-  shows the gate is live and correctly wired to the facilitator).
-- Free-tier Workers: no cron triggers — `/funding` is pull-based, which matches
-  the bounty spec (`venue_ids` / `markets[]` inputs per call).
+- Self-funded $0.01 settlement was skipped under a zero-capital constraint; the first external paid call supplies the on-chain proof (transcript above shows the gate is live and correctly wired to the facilitator).
+- Free-tier Workers: no cron triggers — `/funding` is pull-based, which matches the bounty spec (`venue_ids` / `markets[]` inputs per call).
 
 ## Payout wallet (per bounty instructions)
 
@@ -70,5 +60,4 @@ Solana: `5j9ct6FiFrmMK6umMpyFC3jcCMFFHF2oRvTwuv459VMv`
 
 https://github.com/aaron11998/perps-funding-pulse
 - TypeScript + hono + `x402-hono`, zod-validated inputs, symbol allowlist.
-- Fixtures: live captures per venue (Hyperliquid, Binance premiumIndex +
-  openInterest, dYdX). Smoke-gate tooling in `smoke/` replays fixtures end-to-end.
+- Fixtures: live captures per venue (Hyperliquid, Binance premiumIndex + openInterest, dYdX). Smoke-gate tooling in `smoke/` replays fixtures end-to-end.

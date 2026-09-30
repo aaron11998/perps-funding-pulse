@@ -1,0 +1,19 @@
+{
+  "x402Version": 1,
+  "resource": {
+    "id": "perps-funding-pulse",
+    "name": "Perps Funding Pulse",
+    "description": "Real-time perps funding rates for major perpetual futures exchanges"
+  },
+  "description": "Access to the perps funding pulse API",
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:8453",
+      "asset": "USDC",
+      "resource": "/",
+      "price": "0.01",
+      "payTo": "0x76EfB727cd3271C7DE22f92437Be212766C9631f"
+    }
+  ]
+}
